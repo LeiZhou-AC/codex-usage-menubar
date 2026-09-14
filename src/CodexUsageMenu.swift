@@ -18,6 +18,7 @@ private struct UsageWindow {
         if minutes % 60 == 0 { return "\(minutes / 60)h" }
         return "\(minutes)m"
     }
+
 }
 
 private struct UsageSnapshot {
@@ -174,19 +175,20 @@ private final class CodexUsageService {
 
         let reader = JSONLineReader(handle: stdout.fileHandleForReading)
 
+        let initializeParams: [String: Any] = [
+            "clientInfo": [
+                "name": "codex_usage_menubar",
+                "title": "Codex Usage Menu",
+                "version": "1.1.0"
+            ],
+            "capabilities": [
+                "experimentalApi": false
+            ]
+        ]
         try send([
             "id": 1,
             "method": "initialize",
-            "params": [
-                "clientInfo": [
-                    "name": "codex_usage_menubar",
-                    "title": "Codex Usage Menu",
-                    "version": "1.0.10"
-                ],
-                "capabilities": [
-                    "experimentalApi": false
-                ]
-            ]
+            "params": initializeParams
         ], to: stdin.fileHandleForWriting)
 
         _ = try reader.response(id: 1)
@@ -360,6 +362,84 @@ private final class CodexUsageService {
     }
 }
 
+private func resetDetails(for window: UsageWindow?) -> String {
+    guard let resetsAt = window?.resetsAt else {
+        return "刷新时间未知"
+    }
+
+    let date = Date(timeIntervalSince1970: resetsAt)
+    let formatter = DateFormatter()
+    formatter.dateStyle = Calendar.current.isDateInToday(date) ? .none : .medium
+    formatter.timeStyle = .short
+
+    return "刷新：\(formatter.string(from: date)) · \(relativeReset(to: date))"
+}
+
+private func relativeReset(to date: Date) -> String {
+    let interval = max(0, Int(date.timeIntervalSinceNow))
+    let days = interval / 86400
+    let hours = (interval % 86400) / 3600
+    let minutes = (interval % 3600) / 60
+
+    if days > 0 { return "\(days)d \(hours)h 后" }
+    if hours > 0 { return "\(hours)h \(minutes)m 后" }
+    return "\(minutes)m 后"
+}
+
+private func compactResetCountdown(for window: UsageWindow?) -> String {
+    guard let resetsAt = window?.resetsAt else {
+        return "--"
+    }
+
+    let interval = max(0, Int(Date(timeIntervalSince1970: resetsAt).timeIntervalSinceNow))
+    let days = interval / 86400
+    let hours = (interval % 86400) / 3600
+    let minutes = (interval % 3600) / 60
+
+    if days > 0 { return "\(days)d\(hours)h" }
+    if hours > 0 { return "\(hours)h\(minutes)m" }
+    return "\(minutes)m"
+}
+
+private enum StatusImageRenderer {
+    static let height: CGFloat = 22
+
+    static func image(top: String, bottom: String) -> NSImage {
+        let font = NSFont.monospacedSystemFont(ofSize: 8, weight: .medium)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .left
+        paragraph.lineBreakMode = .byClipping
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            // Template images use alpha only; macOS supplies the correct
+            // menu-bar foreground color for the current background.
+            .foregroundColor: NSColor.black,
+            .paragraphStyle: paragraph
+        ]
+
+        let topWidth = (top as NSString).size(withAttributes: attributes).width
+        let bottomWidth = (bottom as NSString).size(withAttributes: attributes).width
+        let width = max(32, ceil(max(topWidth, bottomWidth)) + 2)
+        let size = NSSize(width: width, height: height)
+
+        let image = NSImage(size: size, flipped: true) { bounds in
+            let lineWidth = max(0, bounds.width - 2)
+            top.draw(
+                in: NSRect(x: 1, y: 1, width: lineWidth, height: 9),
+                withAttributes: attributes
+            )
+            bottom.draw(
+                in: NSRect(x: 1, y: 11, width: lineWidth, height: 9),
+                withAttributes: attributes
+            )
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+}
+
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private let service = CodexUsageService()
     private var statusItem: NSStatusItem!
@@ -392,12 +472,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
 
         if let button = statusItem.button {
-            button.title = "Codex…"
-            button.font = NSFont.monospacedDigitSystemFont(
-                ofSize: NSFont.systemFontSize,
-                weight: .regular
-            )
+            button.title = ""
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleNone
             button.toolTip = "Codex usage"
+            setStatusLines(top: "5h --", bottom: "W --")
         }
 
         rebuildMenu(message: "Loading usage…")
@@ -505,25 +584,27 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func apply(_ snapshot: UsageSnapshot) {
-        var percentages: [String] = []
-        if let primary = snapshot.primary {
-            percentages.append("\(primary.remainingPercent)%")
-        }
-        if let secondary = snapshot.secondary {
-            percentages.append("\(secondary.remainingPercent)%")
-        }
-
-        statusItem.button?.title = percentages.isEmpty
-            ? "Codex—"
-            : "Codex " + percentages.joined(separator: "·")
+        let windows = displayWindows(from: snapshot)
+        let fiveHourText = windows.fiveHour.map { "\($0.remainingPercent)%" } ?? "--"
+        let weeklyText = windows.weekly.map { "\($0.remainingPercent)%" } ?? "--"
+        let fiveHourReset = compactResetCountdown(for: windows.fiveHour)
+        let weeklyReset = compactResetCountdown(for: windows.weekly)
+        setStatusLines(
+            top: "5h \(fiveHourText) ↻\(fiveHourReset)",
+            bottom: "W \(weeklyText) ↻\(weeklyReset)"
+        )
+        statusItem.button?.toolTip = "5小时：\(resetDetails(for: windows.fiveHour))\n周额度：\(resetDetails(for: windows.weekly))"
 
         menu.removeAllItems()
 
-        addWindow(snapshot.primary)
-        if snapshot.primary != nil && snapshot.secondary != nil {
-            menu.addItem(.separator())
-        }
-        addWindow(snapshot.secondary)
+        addWindow(windows.fiveHour, title: "5 小时额度")
+        addWindow(windows.weekly, title: "周额度")
+
+        let updated = RelativeDateTimeFormatter().localizedString(
+            for: snapshot.fetchedAt,
+            relativeTo: Date()
+        )
+        menu.addItem(disabledItem("最后同步：\(updated)"))
 
         if let credits = snapshot.resetCredits, credits > 0 {
             menu.addItem(.separator())
@@ -532,47 +613,38 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menu.addItem(.separator())
-        let updated = RelativeDateTimeFormatter().localizedString(
-            for: snapshot.fetchedAt,
-            relativeTo: Date()
-        )
-        menu.addItem(disabledItem("Updated \(updated)"))
-
         addActions()
     }
 
     private func apply(error: Error) {
-        statusItem.button?.title = "Codex—"
+        setStatusLines(top: "5h --", bottom: "W --")
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         rebuildMenu(message: message)
     }
 
-    private func addWindow(_ window: UsageWindow?) {
-        guard let window else { return }
-
-        let title = "\(window.label): \(window.remainingPercent)% left"
-        menu.addItem(disabledItem(title))
-
-        if let resetsAt = window.resetsAt {
-            let date = Date(timeIntervalSince1970: resetsAt)
-            let formatter = DateFormatter()
-            formatter.dateStyle = Calendar.current.isDateInToday(date) ? .none : .medium
-            formatter.timeStyle = .short
-
-            let relative = relativeReset(date)
-            menu.addItem(disabledItem("Resets \(formatter.string(from: date)) · \(relative)"))
-        }
+    private func setStatusLines(top: String, bottom: String) {
+        let image = StatusImageRenderer.image(top: top, bottom: bottom)
+        statusItem.length = image.size.width
+        statusItem.button?.image = image
     }
 
-    private func relativeReset(_ date: Date) -> String {
-        let interval = max(0, Int(date.timeIntervalSinceNow))
-        let days = interval / 86400
-        let hours = (interval % 86400) / 3600
-        let minutes = (interval % 3600) / 60
+    private func displayWindows(from snapshot: UsageSnapshot) -> (fiveHour: UsageWindow?, weekly: UsageWindow?) {
+        let windows = [snapshot.primary, snapshot.secondary].compactMap { $0 }
+        let fiveHour = windows.first { $0.durationMinutes == 300 }
+        let weekly = windows.first { $0.durationMinutes == 10080 }
 
-        if days > 0 { return "in \(days)d \(hours)h" }
-        if hours > 0 { return "in \(hours)h \(minutes)m" }
-        return "in \(minutes)m"
+        // Keep the app useful if a future response omits duration metadata.
+        if fiveHour == nil && weekly == nil {
+            return (snapshot.primary, snapshot.secondary)
+        }
+
+        return (fiveHour, weekly)
+    }
+
+    private func addWindow(_ window: UsageWindow?, title: String) {
+        let remaining = window.map { "\($0.remainingPercent)% 剩余" } ?? "暂不可用"
+        menu.addItem(disabledItem("\(title)：\(remaining)"))
+        menu.addItem(disabledItem(resetDetails(for: window)))
     }
 
     private func rebuildMenu(message: String) {

@@ -8,6 +8,7 @@ BUNDLE_ID="com.codexusage.menubar"
 INSTALL_DIR="$HOME/Applications"
 APP_DIR="$INSTALL_DIR/$APP_NAME.app"
 BUILD_DIR=".build"
+MODULE_CACHE_DIR="$BUILD_DIR/ModuleCache"
 LAUNCH_AGENT_LABEL="com.codexusage.menubar"
 LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
 LAUNCH_AGENT="$LAUNCH_AGENT_DIR/$LAUNCH_AGENT_LABEL.plist"
@@ -66,7 +67,9 @@ pkill -f "$APP_DIR/Contents/MacOS/CodexUsage" 2>/dev/null || true
 sleep 0.3
 
 mkdir -p "$BUILD_DIR"
+mkdir -p "$MODULE_CACHE_DIR"
 xcrun swiftc \
+  -module-cache-path "$MODULE_CACHE_DIR" \
   -O \
   -framework Cocoa \
   src/CodexUsageMenu.swift \
@@ -100,9 +103,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.10</string>
+  <string>1.1.0</string>
   <key>CFBundleVersion</key>
-  <string>11</string>
+  <string>12</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
   <key>LSUIElement</key>
