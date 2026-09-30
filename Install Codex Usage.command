@@ -23,9 +23,17 @@ echo "Building Codex Usage menu-bar app…"
 CODEX_PATH=""
 
 for candidate in \
+  "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex" \
+  "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" \
   "/Applications/ChatGPT.app/Contents/Resources/codex" \
+  "/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex" \
+  "/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" \
   "/Applications/Codex.app/Contents/Resources/codex" \
+  "$HOME/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex" \
+  "$HOME/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" \
   "$HOME/Applications/ChatGPT.app/Contents/Resources/codex" \
+  "$HOME/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex" \
+  "$HOME/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" \
   "$HOME/Applications/Codex.app/Contents/Resources/codex" \
   "$HOME/.codex/packages/standalone/current/codex" \
   "$HOME/.codex/packages/standalone/current/bin/codex"
@@ -103,9 +111,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.1.0</string>
+  <string>1.1.1</string>
   <key>CFBundleVersion</key>
-  <string>12</string>
+  <string>13</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
   <key>LSUIElement</key>

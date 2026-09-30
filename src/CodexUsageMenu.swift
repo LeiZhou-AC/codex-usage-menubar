@@ -179,7 +179,7 @@ private final class CodexUsageService {
             "clientInfo": [
                 "name": "codex_usage_menubar",
                 "title": "Codex Usage Menu",
-                "version": "1.1.0"
+                "version": "1.1.1"
             ],
             "capabilities": [
                 "experimentalApi": false
@@ -315,10 +315,19 @@ private final class CodexUsageService {
 
         let known = [
             // Current ChatGPT/Codex desktop apps bundle the local app-server
-            // executable here. Prefer these before requiring a standalone CLI.
+            // inside codex-cli. Keep the legacy direct Resources path for
+            // older desktop releases.
+            "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+            "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
             "/Applications/ChatGPT.app/Contents/Resources/codex",
+            "/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex",
+            "/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
             "/Applications/Codex.app/Contents/Resources/codex",
+            NSHomeDirectory() + "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+            NSHomeDirectory() + "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
             NSHomeDirectory() + "/Applications/ChatGPT.app/Contents/Resources/codex",
+            NSHomeDirectory() + "/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex",
+            NSHomeDirectory() + "/Applications/Codex.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
             NSHomeDirectory() + "/Applications/Codex.app/Contents/Resources/codex",
 
             // Standalone Codex installs.

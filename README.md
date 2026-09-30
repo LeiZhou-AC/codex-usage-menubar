@@ -112,6 +112,8 @@ Codex Usage Menubar
 
 应用优先读取 `rateLimitsByLimitId.codex`，并兼容旧版返回的 `rateLimits`。它根据 `windowDurationMins` 识别 5 小时和周窗口，因此不会因为 `primary`、`secondary` 顺序变化而把两个额度显示反。
 
+路径发现同时兼容新版桌面客户端的 `Resources/codex-cli/bin/codex`、应用包形式的 Codex CLI，以及旧版的 `Resources/codex` 路径。ChatGPT/Codex 更新后如果内置 CLI 路径发生变化，重新运行安装脚本即可记录当前可执行文件。
+
 剩余额度计算方式：
 
 ```text
